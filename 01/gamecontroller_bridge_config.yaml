@@ -1,0 +1,36 @@
+# gamecontroller_bridge_config.yaml
+# Konfigurationsdatei für den Gamecontroller-Roboter Bridge Node
+
+# ROS Topic-Konfiguration
+gamecontroller_topic: "/joy"                    # Topic von Knoten #8 (Gamecontroller Input)
+robot_control_topic_prefix: "/robot_cmd_vel"    # Topic-Präfix für Knoten #12 (Motor Control)
+
+# Roboter-Konfiguration
+num_robots: 3                                   # Anzahl der zu steuernden Roboter
+
+# Joystick-Verhalten
+deadzone: 0.15                                  # Deadzone für Joysticks (verhindert Drift)
+linear_scale_factor: 1.5                       # Skalierung für lineare Bewegung (m/s)
+angular_scale_factor: 2.0                      # Skalierung für Rotation (rad/s)
+
+# Verbindungsüberwachung
+connection_timeout: 2.0                        # Timeout in Sekunden für Gamepad-Verbindung
+
+# Erweiterte Konfiguration (optional)
+# Button-Mapping für Roboter-Auswahl
+robot_selection_buttons:
+  previous: 4                                   # L1 Button für vorherigen Roboter
+  next: 5                                       # R1 Button für nächsten Roboter
+
+# Joystick-Achsen-Mapping
+joystick_axes:
+  left_stick_x: 0                              # Linker Stick X-Achse (links/rechts)
+  left_stick_y: 1                              # Linker Stick Y-Achse (vor/zurück)
+  right_stick_x: 2                             # Rechter Stick X-Achse (Rotation)
+  right_stick_y: 3                             # Rechter Stick Y-Achse (nicht verwendet)
+
+# Debug-Einstellungen
+debug:
+  log_level: "INFO"                            # DEBUG, INFO, WARN, ERROR
+  log_velocity_commands: false                 # Protokolliere Geschwindigkeitskommandos
+  show_robot_selection: true                   # Zeige Roboter-Auswahl an
