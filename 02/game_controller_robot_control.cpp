@@ -8,20 +8,19 @@
 #include <map>
 
 /**
- * Spiel-Controller-Roboter-Kontrollknoten
- *
- * Dieser Knoten fungiert als Brücke zwischen der Eingabe der Spielsteuerung (von Knoten #8)
- * und der Motorsteuerung des Roboters (zu Knoten #12). Er übersetzt Joystick-Bewegungen
- * in Geschwindigkeitsbefehle für den Roboter mit entsprechender Skalierung und Sicherheitsfunktionen.
+ * Spiel-Controller Roboter-Steuerungs-Knoten
+ * 
+ * Dieser Knoten fungiert als Brücke zwischen Spiel-Controller-Eingaben (von Knoten #8)
+ * und Roboter-Motorsteuerung (zu Knoten #12). Er übersetzt Joystick-Bewegungen
+ * in Roboter-Geschwindigkeitsbefehle mit angemessener Skalierung und Sicherheitsfeatures.
  */
- 
 class GameControllerRobotControl 
 {
 private:
     ros::NodeHandle nh_;
     ros::NodeHandle private_nh_;
     
-    // Subscribers & Publishers
+    // Abonnenten und Herausgeber
     ros::Subscriber joy_subscriber_;
     ros::Subscriber controller_status_subscriber_;
     std::vector<ros::Publisher> twist_publishers_;
@@ -32,23 +31,23 @@ private:
     std::vector<std::string> robot_topics_;
     
     // Joystick-Konfiguration
-    int left_stick_x_axis_;    // Linker Joystick X (Schräglauf nach links/rechts)
+    int left_stick_x_axis_;    // Linker Joystick X (seitliche Bewegung links/rechts)
     int left_stick_y_axis_;    // Linker Joystick Y (vorwärts/rückwärts) 
-    int right_stick_x_axis_;   // Rechter Joystick X (Drehung)
-    int robot_select_button_;  // Schaltfläche zum Durchlaufen der Roboter
+    int right_stick_x_axis_;   // Rechter Joystick X (Rotation)
+    int robot_select_button_;  // Taste zum Durchschalten zwischen Robotern
     
-    // Skalierungsfaktoren für eine gleichmäßige Steuerung
+    // Skalierungsfaktoren für sanfte Steuerung
     double linear_scale_x_;    // Skalierung für seitliche Bewegung
-    double linear_scale_y_;    // Skalierung für Vorwärts-/Rückwärtsbewegung
+    double linear_scale_y_;    // Skalierung für vorwärts/rückwärts-Bewegung  
     double angular_scale_;     // Skalierung für Rotation
-        
-    // Sicherheit und staatliche Verwaltung
+    
+    // Sicherheit und Zustandsverwaltung
     bool controller_connected_;
     bool button_pressed_last_cycle_;
     ros::Time last_joy_message_time_;
     double connection_timeout_;
     
-    // Not-Aus-Funktionalität
+    // Not-Stopp-Funktionalität
     ros::Timer safety_timer_;
     
 public:
@@ -61,104 +60,105 @@ public:
         initializeParameters();
         setupPublishersAndSubscribers();
         
-        // Stellen Sie die anfänglichen Motordrehzahlen nach Bedarf auf 0 ein.
+        // Setze Anfangs-Motorgeschwindigkeiten auf 0 wie gefordert
         setAllRobotsToZero();
         
-        // Timer für Sicherheitsüberwachung starten
+        // Starte Sicherheits-Überwachungstimer
         safety_timer_ = nh_.createTimer(ros::Duration(0.1), 
                                        &GameControllerRobotControl::safetyTimerCallback, this);
         
-        ROS_INFO("Game Controller Robot Control Node initialized with %d robots", num_robots_);
-        ROS_INFO("Currently controlling robot %d on topic: %s", 
+        ROS_INFO("Spiel-Controller Roboter-Steuerungs-Knoten initialisiert mit %d Robotern", num_robots_);
+        ROS_INFO("Steuere momentan Roboter %d auf Topic: %s", 
                  current_robot_index_, robot_topics_[current_robot_index_].c_str());
     }
     
 private:
     /**
-     * Initialisierung aller Konfigurationsparameter vom ROS-Parameter-Server
-     * Dies ermöglicht eine flexible Konfiguration ohne Neukompilierung
+     * Initialisiere alle Konfigurationsparameter vom ROS-Parameter-Server
+     * Dies ermöglicht flexible Konfiguration ohne Neukompilierung
      */
     void initializeParameters()
     {
-        // Roboterkonfiguration
+        // Roboter-Konfiguration
         private_nh_.param<int>("num_robots", num_robots_, 1);
         
-        // Standardthemennamen generieren, wenn nicht angegeben
+        // Generiere Standard-Topic-Namen falls nicht angegeben
         std::vector<std::string> default_topics;
         for(int i = 0; i < num_robots_; i++) {
             default_topics.push_back("/robot_" + std::to_string(i) + "/cmd_vel");
         }
         private_nh_.param<std::vector<std::string>>("robot_topics", robot_topics_, default_topics);
         
-        // Joystick-Achsenbelegung (Xbox-Controller-Layout als Standard)
+        // Joystick-Achsen-Zuordnung (Xbox-Controller-Layout als Standard)
         private_nh_.param<int>("left_stick_x_axis", left_stick_x_axis_, 0);    // Linker Stick X
-        private_nh_.param<int>("left_stick_y_axis", left_stick_y_axis_, 1);    // Linker Stick Y
+        private_nh_.param<int>("left_stick_y_axis", left_stick_y_axis_, 1);    // Linker Stick Y  
         private_nh_.param<int>("right_stick_x_axis", right_stick_x_axis_, 3);  // Rechter Stick X
         private_nh_.param<int>("robot_select_button", robot_select_button_, 0); // A-Taste
         
-        // Skalierungsfaktoren für Bewegungen - abgestimmt auf eine reibungslose, reaktionsschnelle Steuerung
-        private_nh_.param<double>("linear_scale_x", linear_scale_x_, 1.0);     // m/s max. seitliche Geschwindigkeit
-        private_nh_.param<double>("linear_scale_y", linear_scale_y_, 1.5);     // m/s max. Fahrgeschwindigkeit
-        private_nh_.param<double>("angular_scale", angular_scale_, 2.0);       // rad/s maximale Drehgeschwindigkeit
+        // Bewegungs-Skalierungsfaktoren - abgestimmt für sanfte, responsive Steuerung
+        private_nh_.param<double>("linear_scale_x", linear_scale_x_, 1.0);     // m/s max seitliche Geschwindigkeit
+        private_nh_.param<double>("linear_scale_y", linear_scale_y_, 1.5);     // m/s max Vorwärtsgeschwindigkeit
+        private_nh_.param<double>("angular_scale", angular_scale_, 2.0);       // rad/s max Rotationsgeschwindigkeit
         
         // Sicherheitsparameter
-        private_nh_.param<double>("connection_timeout", connection_timeout_, 1.0); // seconds
+        private_nh_.param<double>("connection_timeout", connection_timeout_, 1.0); // Sekunden
         
-        // Konfiguration validieren
+        // Validiere Konfiguration
         if(robot_topics_.size() != static_cast<size_t>(num_robots_)) {
-            ROS_WARN("Number of robot topics (%zu) doesn't match num_robots (%d). Adjusting...", 
+            ROS_WARN("Anzahl der Roboter-Topics (%zu) stimmt nicht mit num_robots (%d) überein. Anpassung...", 
                      robot_topics_.size(), num_robots_);
             num_robots_ = robot_topics_.size();
         }
     }
     
     /**
-     * alle ROS-Kommunikationskanäle einrichten
+     * Erstelle alle ROS-Kommunikationskanäle
      */
     void setupPublishersAndSubscribers()
     {
-        // Subscribe to joy messages from node #8
+        // Abonniere Joy-Nachrichten von Knoten #8
         joy_subscriber_ = nh_.subscribe("/joy", 10, 
                                        &GameControllerRobotControl::joyCallback, this);
         
-        // Optional: Subscribe to controller connection status if available
-        controller_status_subscriber_ = nh_.subscribe("/joy_node/connection_status", 10, &GameControllerRobotControl::connectionStatusCallback, this);
+        // Optional: Abonniere Controller-Verbindungsstatus falls verfügbar
+        controller_status_subscriber_ = nh_.subscribe("/joy_node/connection_status", 10,
+                                                     &GameControllerRobotControl::connectionStatusCallback, this);
         
-        // Create publishers for each robot's motor control (to node #12)
+        // Erstelle Herausgeber für jeden Roboter-Motorsteuerung (zu Knoten #12)
         twist_publishers_.resize(num_robots_);
         for(int i = 0; i < num_robots_; i++) {
             twist_publishers_[i] = nh_.advertise<geometry_msgs::Twist>(robot_topics_[i], 1);
-            ROS_INFO("Created publisher for robot %d on topic: %s", i, robot_topics_[i].c_str());
+            ROS_INFO("Herausgeber für Roboter %d auf Topic erstellt: %s", i, robot_topics_[i].c_str());
         }
     }
     
     /**
-     * Main callback function that processes joystick input and generates robot commands
-     * This is where the core joystick-to-robot translation happens
+     * Haupt-Callback-Funktion die Joystick-Eingaben verarbeitet und Roboter-Befehle generiert
+     * Hier findet die Kern-Joystick-zu-Roboter-Übersetzung statt
      */
     void joyCallback(const sensor_msgs::Joy::ConstPtr& joy_msg)
     {
         last_joy_message_time_ = ros::Time::now();
         controller_connected_ = true;
         
-        // Validate joystick message has enough axes and buttons
+        // Validiere dass Joystick-Nachricht genügend Achsen und Tasten hat
         if(!validateJoyMessage(joy_msg)) {
-            ROS_WARN_THROTTLE(1.0, "Invalid joystick message received");
+            ROS_WARN_THROTTLE(1.0, "Ungültige Joystick-Nachricht empfangen");
             return;
         }
         
-        // Handle robot selection (nice-to-have feature)
+        // Behandle Roboter-Auswahl (Nice-to-have Feature)
         handleRobotSelection(joy_msg);
         
-        // Generate movement command from joystick input
+        // Generiere Bewegungsbefehl aus Joystick-Eingabe
         geometry_msgs::Twist twist_cmd = generateTwistCommand(joy_msg);
         
-        // Send commands to robots
+        // Sende Befehle an Roboter
         sendCommandsToRobots(twist_cmd);
     }
     
     /**
-     * Validate that the joystick message contains all required axes and buttons
+     * Validiere dass die Joystick-Nachricht alle benötigten Achsen und Tasten enthält
      */
     bool validateJoyMessage(const sensor_msgs::Joy::ConstPtr& joy_msg)
     {
@@ -166,13 +166,13 @@ private:
         int required_buttons = robot_select_button_ + 1;
         
         if(static_cast<int>(joy_msg->axes.size()) < required_axes) {
-            ROS_ERROR_THROTTLE(5.0, "Joy message has %zu axes, need at least %d", 
+            ROS_ERROR_THROTTLE(5.0, "Joy-Nachricht hat %zu Achsen, benötigt mindestens %d", 
                               joy_msg->axes.size(), required_axes);
             return false;
         }
         
         if(static_cast<int>(joy_msg->buttons.size()) < required_buttons) {
-            ROS_ERROR_THROTTLE(5.0, "Joy message has %zu buttons, need at least %d", 
+            ROS_ERROR_THROTTLE(5.0, "Joy-Nachricht hat %zu Tasten, benötigt mindestens %d", 
                               joy_msg->buttons.size(), required_buttons);
             return false;
         }
@@ -181,24 +181,24 @@ private:
     }
     
     /**
-     * Handle robot selection via controller button (nice-to-have feature)
-     * Cycles through available robots when button is pressed
+     * Behandle Roboter-Auswahl über Controller-Taste (Nice-to-have Feature)
+     * Schaltet durch verfügbare Roboter wenn Taste gedrückt wird
      */
     void handleRobotSelection(const sensor_msgs::Joy::ConstPtr& joy_msg)
     {
-        if(num_robots_ <= 1) return; // No need to select if only one robot
+        if(num_robots_ <= 1) return; // Keine Auswahl nötig bei nur einem Roboter
         
         bool button_pressed = joy_msg->buttons[robot_select_button_] > 0;
         
-        // Detect button press (rising edge)
+        // Erkenne Tastendruck (steigende Flanke)
         if(button_pressed && !button_pressed_last_cycle_) {
-            // Stop current robot before switching
+            // Stoppe aktuellen Roboter vor dem Wechsel
             publishTwistToRobot(current_robot_index_, geometry_msgs::Twist());
             
-            // Cycle to next robot
+            // Wechsle zum nächsten Roboter
             current_robot_index_ = (current_robot_index_ + 1) % num_robots_;
             
-            ROS_INFO("Switched to controlling robot %d on topic: %s", 
+            ROS_INFO("Gewechselt zur Steuerung von Roboter %d auf Topic: %s", 
                      current_robot_index_, robot_topics_[current_robot_index_].c_str());
         }
         
@@ -206,42 +206,42 @@ private:
     }
     
     /**
-     * Convert joystick input to robot velocity command
-     * This implements the core mapping requirements:
-     * - Left stick X → robot X velocity (strafe)
-     * - Left stick Y → robot Y velocity (forward/back) 
-     * - Right stick X → robot angular velocity (rotation)
+     * Wandle Joystick-Eingabe in Roboter-Geschwindigkeitsbefehl um
+     * Dies implementiert die Kern-Zuordnungsanforderungen:
+     * - Linker Stick X → Roboter X-Geschwindigkeit (seitlich)
+     * - Linker Stick Y → Roboter Y-Geschwindigkeit (vorwärts/rückwärts) 
+     * - Rechter Stick X → Roboter Winkelgeschwindigkeit (Rotation)
      */
     geometry_msgs::Twist generateTwistCommand(const sensor_msgs::Joy::ConstPtr& joy_msg)
     {
         geometry_msgs::Twist twist;
         
-        // Map joystick axes to robot velocities with proper scaling
-        // Note: Joystick Y is typically inverted (up = negative), so we negate it
-        twist.linear.x = joy_msg->axes[left_stick_x_axis_] * linear_scale_x_;  // Strafe left/right
-        twist.linear.y = -joy_msg->axes[left_stick_y_axis_] * linear_scale_y_; // Forward/backward (inverted)
-        twist.linear.z = 0.0; // No vertical movement for ground robots
+        // Ordne Joystick-Achsen zu Roboter-Geschwindigkeiten mit angemessener Skalierung zu
+        // Hinweis: Joystick Y ist typischerweise invertiert (oben = negativ), daher negieren wir
+        twist.linear.x = joy_msg->axes[left_stick_x_axis_] * linear_scale_x_;  // Seitlich links/rechts
+        twist.linear.y = -joy_msg->axes[left_stick_y_axis_] * linear_scale_y_; // Vorwärts/rückwärts (invertiert)
+        twist.linear.z = 0.0; // Keine vertikale Bewegung für Bodenroboter
         
-        // Rotation: right stick X controls yaw rotation
-        // Positive stick input (right) = positive angular velocity (counterclockwise by ROS convention)
-        // But the requirement says right = clockwise, so we negate
-        twist.angular.x = 0.0; // No roll
-        twist.angular.y = 0.0; // No pitch  
-        twist.angular.z = -joy_msg->axes[right_stick_x_axis_] * angular_scale_; // Yaw (negated for clockwise)
+        // Rotation: rechter Stick X steuert Gier-Rotation
+        // Positive Stick-Eingabe (rechts) = positive Winkelgeschwindigkeit (gegen Uhrzeigersinn nach ROS-Konvention)
+        // Aber die Anforderung besagt rechts = im Uhrzeigersinn, daher negieren wir
+        twist.angular.x = 0.0; // Kein Rollen
+        twist.angular.y = 0.0; // Kein Nicken  
+        twist.angular.z = -joy_msg->axes[right_stick_x_axis_] * angular_scale_; // Gieren (negiert für Uhrzeigersinn)
         
-        // Apply deadzone to prevent tiny movements from stick drift
+        // Wende Totzone an um winzige Bewegungen durch Stick-Drift zu verhindern
         applyDeadzone(twist);
         
         return twist;
     }
     
     /**
-     * Apply deadzone filtering to prevent unwanted movement from controller drift
-     * Small joystick values are set to zero to ensure clean stops
+     * Wende Totzone-Filterung an um ungewollte Bewegungen durch Controller-Drift zu verhindern
+     * Kleine Joystick-Werte werden auf Null gesetzt um saubere Stopps zu gewährleisten
      */
     void applyDeadzone(geometry_msgs::Twist& twist)
     {
-        const double deadzone = 0.1; // 10% deadzone
+        const double deadzone = 0.1; // 10% Totzone
         
         if(std::abs(twist.linear.x) < deadzone) twist.linear.x = 0.0;
         if(std::abs(twist.linear.y) < deadzone) twist.linear.y = 0.0;
@@ -249,24 +249,24 @@ private:
     }
     
     /**
-     * Send movement commands to appropriate robots
-     * Active robot gets the command, others get zero velocity (nice-to-have requirement)
+     * Sende Bewegungsbefehle an entsprechende Roboter
+     * Aktiver Roboter erhält den Befehl, andere erhalten Null-Geschwindigkeit (Nice-to-have Anforderung)
      */
     void sendCommandsToRobots(const geometry_msgs::Twist& twist_cmd)
     {
         for(int i = 0; i < num_robots_; i++) {
             if(i == current_robot_index_) {
-                // Send actual command to active robot
+                // Sende tatsächlichen Befehl an aktiven Roboter
                 publishTwistToRobot(i, twist_cmd);
             } else {
-                // Send zero command to inactive robots (nice-to-have requirement)
+                // Sende Null-Befehl an inaktive Roboter (Nice-to-have Anforderung)
                 publishTwistToRobot(i, geometry_msgs::Twist());
             }
         }
     }
     
     /**
-     * Publish twist command to specific robot
+     * Veröffentliche Twist-Befehl an spezifischen Roboter
      */
     void publishTwistToRobot(int robot_index, const geometry_msgs::Twist& twist)
     {
@@ -276,7 +276,7 @@ private:
     }
     
     /**
-     * Set all robots to zero velocity - used for initialization and emergency stops
+     * Setze alle Roboter auf Null-Geschwindigkeit - verwendet für Initialisierung und Not-Stopps
      */
     void setAllRobotsToZero()
     {
@@ -284,11 +284,11 @@ private:
         for(int i = 0; i < num_robots_; i++) {
             publishTwistToRobot(i, zero_twist);
         }
-        ROS_INFO("Set all robots to zero velocity");
+        ROS_INFO("Alle Roboter auf Null-Geschwindigkeit gesetzt");
     }
     
     /**
-     * Handle controller connection status updates (if available from node #8)
+     * Behandle Controller-Verbindungsstatus-Updates (falls verfügbar von Knoten #8)
      */
     void connectionStatusCallback(const std_msgs::Bool::ConstPtr& status_msg)
     {
@@ -296,16 +296,16 @@ private:
         controller_connected_ = status_msg->data;
         
         if(was_connected && !controller_connected_) {
-            ROS_WARN("Game controller disconnected - stopping all robots");
+            ROS_WARN("Spiel-Controller getrennt - stoppe alle Roboter");
             setAllRobotsToZero();
         } else if(!was_connected && controller_connected_) {
-            ROS_INFO("Game controller connected");
+            ROS_INFO("Spiel-Controller verbunden");
         }
     }
     
     /**
-     * Safety timer callback - monitors for controller timeouts
-     * If no joystick messages received within timeout, assume disconnection
+     * Sicherheitstimer-Callback - überwacht Controller-Zeitüberschreitungen
+     * Falls keine Joystick-Nachrichten innerhalb der Zeitüberschreitung empfangen, nehme Trennung an
      */
     void safetyTimerCallback(const ros::TimerEvent& event)
     {
@@ -313,7 +313,7 @@ private:
             double time_since_last_message = (ros::Time::now() - last_joy_message_time_).toSec();
             
             if(time_since_last_message > connection_timeout_) {
-                ROS_WARN("No joystick messages for %.1f seconds - assuming controller disconnected", 
+                ROS_WARN("Keine Joystick-Nachrichten seit %.1f Sekunden - nehme Controller-Trennung an", 
                          time_since_last_message);
                 controller_connected_ = false;
                 setAllRobotsToZero();

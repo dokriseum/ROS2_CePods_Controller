@@ -1,35 +1,35 @@
-# Game Controller Robot Control Configuration
-# This file allows you to customize the behavior without recompiling
+# Spiel-Controller Roboter-Steuerungs-Konfiguration
+# Diese Datei ermöglicht es dir, das Verhalten anzupassen ohne neu zu kompilieren
 
-# Robot Configuration
+# Roboter-Konfiguration
 num_robots: 1
 robot_topics:
   - "/robot_0/cmd_vel"
-  # Add more topics for multiple robots:
+  # Füge weitere Topics für mehrere Roboter hinzu:
   # - "/robot_1/cmd_vel" 
   # - "/robot_2/cmd_vel"
 
-# Controller Mapping (Xbox Controller Layout)
-# Axis indices depend on your specific controller
-# Xbox 360/One Controller mapping:
-# Left stick: X=0, Y=1
-# Right stick: X=3, Y=4
-# Triggers: LT=2, RT=5
-left_stick_x_axis: 0    # Strafe left/right
-left_stick_y_axis: 1    # Forward/backward
+# Controller-Zuordnung (Xbox Controller Layout)
+# Achsen-Indizes hängen von deinem spezifischen Controller ab
+# Xbox 360/One Controller Zuordnung:
+# Linker Stick: X=0, Y=1
+# Rechter Stick: X=3, Y=4
+# Trigger: LT=2, RT=5
+left_stick_x_axis: 0    # Seitlich links/rechts
+left_stick_y_axis: 1    # Vorwärts/rückwärts
 right_stick_x_axis: 3   # Rotation
-robot_select_button: 0  # A button (for multi-robot control)
+robot_select_button: 0  # A-Taste (für Multi-Roboter-Steuerung)
 
-# Movement Scaling Factors
-# Adjust these values to make the robot feel responsive but not jumpy
-# Units: meters/second for linear, radians/second for angular
-linear_scale_x: 1.0     # Max sideways speed
-linear_scale_y: 1.5     # Max forward/backward speed  
-angular_scale: 2.0      # Max rotation speed
+# Bewegungs-Skalierungsfaktoren
+# Passe diese Werte an um den Roboter responsiv aber nicht nervös zu machen
+# Einheiten: Meter/Sekunde für linear, Radiant/Sekunde für angular
+linear_scale_x: 1.0     # Max seitliche Geschwindigkeit
+linear_scale_y: 1.5     # Max vorwärts/rückwärts Geschwindigkeit  
+angular_scale: 2.0      # Max Rotationsgeschwindigkeit
 
-# Safety Configuration
-connection_timeout: 1.0  # Seconds before assuming controller disconnected
+# Sicherheits-Konfiguration
+connection_timeout: 1.0  # Sekunden bis Controller-Trennung angenommen wird
 
-# Advanced Settings
-deadzone: 0.1           # Minimum joystick input to register (prevents drift)
-publish_rate: 50.0      # Hz - how often to send commands
+# Erweiterte Einstellungen
+deadzone: 0.1           # Minimale Joystick-Eingabe um zu registrieren (verhindert Drift)
+publish_rate: 50.0      # Hz - wie oft Befehle gesendet werden
